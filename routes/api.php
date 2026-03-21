@@ -29,6 +29,8 @@ use App\Http\Controllers\API\StudentCounsellorAssignmentController;
 use App\Http\Controllers\API\StudentPersonalAcademicDetailController;
 use App\Http\Controllers\API\ActivityLogsController;
 use App\Http\Controllers\API\RegisterController;
+use App\Http\Controllers\API\StudentDoubtSubmissionController;
+
 
 
 Route::get('/user', function (Request $request) {
@@ -666,4 +668,15 @@ Route::prefix('auth')->group(function () {
     Route::post('/verify-phone-otp',  [RegisterController::class, 'verifyOtp']);
     Route::post('/student-register',  [RegisterController::class, 'completeRegistration']);
     Route::post('/resend-phone-otp',  [RegisterController::class, 'resendOtp']);
+});
+Route::middleware('checkRole')->group(function () {
+ 
+    Route::prefix('student')->group(function () {
+ 
+        Route::get('doubt-submissions',       [StudentDoubtSubmissionController::class, 'index']);
+        Route::get('doubt-submissions/{uuid}',[StudentDoubtSubmissionController::class, 'show']);
+        Route::post('doubt-submissions',      [StudentDoubtSubmissionController::class, 'store']);
+        Route::get('doubt-subjects', [StudentDoubtSubmissionController::class, 'subjects']);
+    });
+ 
 });

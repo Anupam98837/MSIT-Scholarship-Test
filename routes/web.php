@@ -317,3 +317,8 @@ Route::get('/student-academic-details', function () {
 Route::get('/student-profile-details', function () {
     return view('pages.users.pages.studentAcademicDetails.studentProfileDetails');
 });
+
+
+Route::get('/doubts/submit', function () {
+    return view('pages.users.pages.doubts.doubtSubmission');
+});

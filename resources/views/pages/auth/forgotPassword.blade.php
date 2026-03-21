@@ -111,7 +111,7 @@
       max-width:100%;
     }
     .ux-brand img{
-      height:70px;
+      height:80px;
       max-width:100%;
       object-fit:contain;
     }
@@ -340,7 +340,7 @@
   <section class="ux-left">
 
     <div class="ux-brand">
-      <img src="{{ asset('/assets/media/images/web/logo.jpg') }}" alt="Unzip Examination">
+      <img src="{{ asset('/assets/media/images/web/logo.png') }}" alt="Unzip Examination">
     </div>
 
     <h1 class="ux-title">Forgot your password?</h1>

@@ -398,10 +398,10 @@
 
       <div class="flex-grow-1">
         <h1 class="qz-head-title">
-          My Quizzes & Games
+          My Exams
           <span class="qz-count-pill d-none" id="qzTotalCount">0</span>
         </h1>
-        <div class="qz-head-sub">
+        <div class="qz-head-sub d-none">
           All your quizzes, bubble games, door games <b>and path games</b> are listed here in one place.
         </div>
       </div>

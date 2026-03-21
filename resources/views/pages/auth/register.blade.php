@@ -79,22 +79,21 @@
       max-width:100%;
     }
     .ux-brand img{
-      height:70px;
+      height:80px;
       max-width:100%;
       object-fit:contain;
     }
 
     .ux-title{
-      font-family:var(--font-head);
-      font-weight:800;
-      color:var(--ink);
-      text-align:center;
-      font-size:clamp(1.5rem, 2.6vw, 2.2rem);
-      margin:.35rem 0 .25rem;
-      position:relative;
-      z-index:1;
-      max-width:min(560px, 100%);
-      line-height:1.2;
+     font-family:var(--font-head);
+    font-weight:700;
+    color:var(--ink);
+    text-align:center;
+    font-size:clamp(1.6rem, 2.6vw, 2.2rem);
+    margin:.35rem 0 .25rem;
+    position:relative;
+    z-index:1;
+    max-width:min(560px, 100%);
     }
 
     .ux-sub{
@@ -450,7 +449,7 @@
   <!-- LEFT -->
   <section class="ux-left">
     <div class="ux-brand">
-      <img src="{{ asset('/assets/media/images/web/logo.jpg') }}" alt="Unzip Examination">
+      <img src="{{ asset('/assets/media/images/web/logo.png') }}" alt="Unzip Examination">
     </div>
 
     <h1 class="ux-title">Student Registration</h1>

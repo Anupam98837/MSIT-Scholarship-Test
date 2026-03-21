@@ -477,6 +477,9 @@
            <a href="/my/result" class="w3-link">
            <i class="fa-duotone fa-solid fa-square-poll-horizontal"></i><span>My Results</span>
           </a>
+          <a href="/doubts/submit" class="w3-link">                          {{-- ✅ ADD THIS --}}
+      <i class="fa-solid fa-circle-question"></i><span>Doubts</span>
+    </a>
         </nav>
       </div>
     {{-- ACADEMIC COUNSELLOR --}}

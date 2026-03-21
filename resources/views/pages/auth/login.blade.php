@@ -147,7 +147,7 @@
   .ux-sub{
     text-align:center;
     color:var(--muted-color);
-    margin-bottom:18px;
+    /* margin-bottom:18px; */
     position:relative;
     z-index:1;
     max-width:min(560px, 100%);
@@ -327,11 +327,17 @@
   <section class="ux-left">
     <div class="ux-brand">
       {{-- Put your Unzip Exam logo here --}}
-      <img src="{{ asset('/assets/media/images/web/logo.jpg') }}" alt="Unzip Examination">
+      <img src="{{ asset('/assets/media/images/web/logo.png') }}" alt="Unzip Examination">
     </div>
 
     <h1 class="ux-title">Welcome to {{ config('app.name') }}    </h1>
-    <p class="ux-sub">Sign in to manage exams, students, and results.</p>
+    <p class="ux-sub">
+  <strong>TechnoHere</strong><br>
+  An Initiative of<br>
+  <strong>Netaji Subhash Engineering College</strong>
+</p>
+   
+
 
     <form class="ux-card" id="ux_form" action="/login" method="post" novalidate>
       {{-- <span class="ux-float-chip">Secure • Token based login</span> --}}
