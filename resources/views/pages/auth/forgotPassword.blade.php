@@ -468,15 +468,25 @@
     identifierIn.focus();
   }
 
-  function goToStep2(retryAfter = 120) {
+  function goToStep2(cooldownSeconds = 120) {
     hideAll();
     otpState.classList.remove('d-none');
     clearOtpBoxes();
     title.textContent = 'Enter your OTP';
     sub.textContent   = 'OTP sent to the mobile & email linked to your account.';
-    startResendCountdown(retryAfter);
+
+    if (cooldownSeconds === null) {
+        // 3rd attempt — permanently disable until tomorrow
+        clearInterval(resendInterval);
+        resendBtn.disabled      = true;
+        resendBtn.textContent   = 'Try again tomorrow';
+        resendTimer.textContent = '';
+    } else {
+        startResendCountdown(cooldownSeconds);
+    }
+
     otpBoxes[0].focus();
-  }
+}
 
   function goToStep3() {
     hideAll();
@@ -554,8 +564,12 @@
 
       // Backend returns the resolved email — store it for the reset call
 currentEmail = data?.data?.token_key || data?.data?.email || identifier;
-      goToStep2(data?.retry_after ?? 120);
 
+if (data?.is_final_attempt) {
+    goToStep2(null); // goes to step 2 but button permanently disabled
+} else {
+    goToStep2(data?.cooldown_seconds ?? 120);
+}
     } catch {
       showAlert('error', 'Network error. Please check your connection and try again.');
       identifierIn.disabled = false;
@@ -587,7 +601,7 @@ currentEmail = data?.data?.token_key || data?.data?.email || identifier;
 
   otpBack.addEventListener('click', goToStep1);
 
-  resendBtn.addEventListener('click', async () => {
+ resendBtn.addEventListener('click', async () => {
     clearAlert();
     clearInterval(resendInterval);
     resendBtn.disabled      = true;
@@ -601,7 +615,9 @@ currentEmail = data?.data?.token_key || data?.data?.email || identifier;
       if (!ok) {
         const msg = extractError(data);
         if (status === 429) {
-          startResendCountdown(data?.retry_after ?? 300);
+          if (data?.wait_seconds) {
+            startResendCountdown(data.wait_seconds);
+          }
           showAlert('warn', msg);
           return;
         }
@@ -616,7 +632,15 @@ currentEmail = data?.data?.token_key || data?.data?.email || identifier;
       clearOtpBoxes();
       otpBoxes[0].focus();
       showAlert('success', 'A new OTP has been sent to your mobile and email.');
-      startResendCountdown(data?.retry_after ?? 300);
+
+      if (data?.is_final_attempt) {
+        clearInterval(resendInterval);
+        resendBtn.disabled      = true;
+        resendBtn.textContent   = 'Try again tomorrow';
+        resendTimer.textContent = '';
+      } else if (data?.cooldown_seconds) {
+        startResendCountdown(data.cooldown_seconds);
+      }
 
     } catch {
       showAlert('error', 'Network error. Please try again.');

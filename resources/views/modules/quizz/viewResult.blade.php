@@ -1132,11 +1132,11 @@
 
       async function loadResult() {
         var token = getToken();
-        if (!token) {
-          clearAuthStorage();
-          window.location.replace("/login");
-          return;
-        }
+        // if (!token) {
+        //   clearAuthStorage();
+        //   window.location.replace("/login");
+        //   return;
+        // }
 
         showLoader(true);
         if (errorEl) {

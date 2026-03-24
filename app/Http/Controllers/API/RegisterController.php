@@ -25,32 +25,30 @@ class RegisterController extends Controller
      * POST /api/register/send-otp
      */
     public function sendOtp(Request $request)
-    {
-        $validator = Validator::make($request->all(), [
-            'phone_number' => ['required', 'regex:/^[6-9]\d{9}$/'],
-        ]);
+{
+    $validator = Validator::make($request->all(), [
+        'phone_number' => ['required', 'regex:/^[6-9]\d{9}$/'],
+    ]);
 
-        if ($validator->fails()) {
-            return response()->json(['success' => false, 'errors' => $validator->errors()], 422);
-        }
-
-        // Check if already registered
-        $exists = DB::table('users')
-            ->where('phone_number', $request->phone_number)
-            ->exists();
-
-        if ($exists) {
-            return response()->json([
-                'success' => false,
-                'message' => 'This phone number is already registered.',
-            ], 409);
-        }
-
-        $result = $this->otpService->sendOtp($request->phone_number);
-
-        return response()->json($result, $result['success'] ? 200 : 500);
+    if ($validator->fails()) {
+        return response()->json(['success' => false, 'errors' => $validator->errors()], 422);
     }
 
+    $exists = DB::table('users')
+        ->where('phone_number', $request->phone_number)
+        ->exists();
+
+    if ($exists) {
+        return response()->json([
+            'success' => false,
+            'message' => 'This phone number is already registered.',
+        ], 409);
+    }
+
+    $result = $this->otpService->sendOtp($request->phone_number, $request->ip()); // ← pass IP
+
+    return response()->json($result, $result['success'] ? 200 : 500);
+}
     /**
      * STEP 2: Verify OTP
      * POST /api/register/verify-otp
@@ -102,7 +100,7 @@ public function completeRegistration(Request $request)
     $now = now();
 
     // Auto assign these quiz IDs after registration
-    $autoQuizIds = [26, 29, 24];
+    $autoQuizIds = [105,125,123];
     $autoQuizIds = array_values(array_unique(array_map('intval', $autoQuizIds)));
 
     DB::transaction(function () use ($request, $phone, $now, $autoQuizIds) {
@@ -179,17 +177,17 @@ public function completeRegistration(Request $request)
      * POST /api/register/resend-otp
      */
     public function resendOtp(Request $request)
-    {
-        $validator = Validator::make($request->all(), [
-            'phone_number' => ['required', 'regex:/^[6-9]\d{9}$/'],
-        ]);
+{
+    $validator = Validator::make($request->all(), [
+        'phone_number' => ['required', 'regex:/^[6-9]\d{9}$/'],
+    ]);
 
-        if ($validator->fails()) {
-            return response()->json(['success' => false, 'errors' => $validator->errors()], 422);
-        }
-
-        $result = $this->otpService->sendOtp($request->phone_number);
-
-        return response()->json($result, $result['success'] ? 200 : 500);
+    if ($validator->fails()) {
+        return response()->json(['success' => false, 'errors' => $validator->errors()], 422);
     }
+
+    $result = $this->otpService->sendOtp($request->phone_number, $request->ip()); // ← pass IP
+
+    return response()->json($result, $result['success'] ? 200 : 500);
+}
 }

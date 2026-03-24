@@ -11,17 +11,16 @@ class VoicenSmsService implements SmsService
    public function send(string $phone, string $message, ?string $otp = null): void
 {
     $payload = [
-    'ukey'       => config('services.voicensms.api_key'),
-    'senderid'   => config('services.voicensms.sender_id'),
-    'msisdn'     => [$phone],
-    'message'    => $message,
-    'filetype'   => 2,
-    'language'   => 0,
-    'credittype' => 2,
-    'templateid' => 0,        
-    'isrefno'    => true,
-];
-
+        'ukey'       => config('services.voicensms.api_key'),
+        'senderid'   => config('services.voicensms.sender_id'),
+        'msisdn'     => [$phone],
+        'message'    => "{$otp} is the OTP for Reset Password, valid for 10 mins. Please don't share it with anyone. Netaji Subhash Engineering College. Call 9831817307 for assistance.",
+        'filetype'   => 2,
+        'language'   => 0,
+        'credittype' => 2,
+        'templateid' => 0,
+        'isrefno'    => true,
+    ];
     Log::channel('daily')->info('[VoicenSMS] Sending', [
         'url'         => config('services.voicensms.endpoint'),
         'phone'       => $phone,

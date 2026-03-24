@@ -6,7 +6,6 @@ use App\Http\Controllers\Controller;
 use App\Contracts\PasswordResetMailer;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Log;
@@ -14,13 +13,6 @@ use Illuminate\Support\Str;
 
 class ForgotPasswordController extends Controller
 {
-    // ── Resend cooldown ladder (seconds) ─────────────────────────────
-    // 1st send  → sets 2 min cooldown before 1st resend is allowed
-    // 1st resend → sets 5 min cooldown before 2nd resend is allowed
-    // 2nd resend → hard-locks for 24h
-    private const COOLDOWNS = [120, 300];   // indexed by attempt count (0-based)
-    private const LOCK_TTL  = 86400;        // 24 hours in seconds
-
     public function __construct(protected PasswordResetMailer $mailer) {}
 
     // ═══════════════════════════════════════════════════════════
@@ -71,24 +63,6 @@ class ForgotPasswordController extends Controller
         }
     }
 
-    // ── Cache key helpers ─────────────────────────────────────────────
-    private function cacheSlug(string $identifier): string
-    {
-        return md5(strtolower($identifier));
-    }
-
-    private function lockKey(string $slug): string     { return "fp_lock:{$slug}"; }
-    private function cooldownKey(string $slug): string { return "fp_cooldown:{$slug}"; }
-    private function attemptKey(string $slug): string  { return "fp_attempts:{$slug}"; }
-
-    private function clearRateLimitCache(string $identifier): void
-    {
-        $slug = $this->cacheSlug($identifier);
-        Cache::forget($this->lockKey($slug));
-        Cache::forget($this->cooldownKey($slug));
-        Cache::forget($this->attemptKey($slug));
-    }
-
     /* =========================================================
      | API 1 — POST /api/auth/forgot-password/send-otp
      | body: { identifier }  ← email OR phone number
@@ -122,108 +96,103 @@ class ForgotPasswordController extends Controller
             'type'       => $isEmail ? 'email' : 'phone',
         ]);
 
-        // ── Rate-limit check ──────────────────────────────────────────
-        $slug        = $this->cacheSlug($identifier);
-        $lockKey     = $this->lockKey($slug);
-        $cooldownKey = $this->cooldownKey($slug);
-        $attemptKey  = $this->attemptKey($slug);
+        // ── Rate-limit check — by IP ──────────────────────────────────
+        $ip = $r->ip();
 
-        if (Cache::has($lockKey)) {
-            $retryAfter = (int) Cache::get($lockKey);
+        $ipRecord = DB::table('password_reset_tokens')
+            ->where('system_ip', $ip)
+            ->whereDate('created_at', today())
+            ->orderBy('created_at', 'desc')
+            ->first();
 
-            Log::channel('daily')->warning('FP_SEND_OTP:HARD_LOCKED', [
-                'request_id'  => $reqId,
-                'identifier'  => $identifier,
-                'retry_after' => $retryAfter,
-            ]);
+        if ($ipRecord) {
 
-            $this->logActivity(
-                $r,
-                'store',
-                'OTP request blocked — identifier hard-locked for 24h',
-                'password_reset_tokens',
-                null,
-                ['identifier'],
-                null,
-                ['identifier' => $identifier, 'retry_after' => $retryAfter, 'request_id' => $reqId]
-            );
+            // 3rd attempt done — blocked until next day
+            if ($ipRecord->attempt_count >= 3) {
 
-            return response()->json([
-                'status'      => 'error',
-                'message'     => 'Too many attempts. Please try again after 24 hours.',
-                'retry_after' => $retryAfter,
-                'locked'      => true,
-            ], 429);
+                Log::channel('daily')->warning('FP_SEND_OTP:HARD_LOCKED', [
+                    'request_id' => $reqId,
+                    'identifier' => $identifier,
+                    'ip'         => $ip,
+                ]);
+
+                $this->logActivity(
+                    $r,
+                    'store',
+                    'OTP request blocked — IP hard-locked until tomorrow',
+                    'password_reset_tokens',
+                    null,
+                    ['system_ip'],
+                    null,
+                    ['ip' => $ip, 'identifier' => $identifier, 'request_id' => $reqId]
+                );
+
+                return response()->json([
+                    'status'  => 'error',
+                    'message' => 'Too many attempts. Please try again tomorrow.',
+                    'locked'  => true,
+                ], 429);
+            }
+
+            // After 1st attempt — 2 min cooldown
+            if ($ipRecord->attempt_count === 1) {
+                $cooldown = Carbon::parse($ipRecord->updated_at)->addMinutes(2);
+                if (now()->lessThan($cooldown)) {
+
+                    Log::channel('daily')->warning('FP_SEND_OTP:COOLDOWN_ACTIVE', [
+                        'request_id'  => $reqId,
+                        'identifier'  => $identifier,
+                        'ip'          => $ip,
+                        'wait_seconds'=> now()->diffInSeconds($cooldown),
+                    ]);
+
+                    return response()->json([
+                        'status'       => 'error',
+                        'message'      => 'Please wait before requesting another OTP.',
+                        'wait_seconds' => now()->diffInSeconds($cooldown),
+                        'locked'       => false,
+                    ], 429);
+                }
+            }
+
+            // After 2nd attempt — 5 min cooldown
+            if ($ipRecord->attempt_count === 2) {
+                $cooldown = Carbon::parse($ipRecord->updated_at)->addMinutes(5);
+                if (now()->lessThan($cooldown)) {
+
+                    Log::channel('daily')->warning('FP_SEND_OTP:COOLDOWN_ACTIVE', [
+                        'request_id'  => $reqId,
+                        'identifier'  => $identifier,
+                        'ip'          => $ip,
+                        'wait_seconds'=> now()->diffInSeconds($cooldown),
+                    ]);
+
+                    return response()->json([
+                        'status'       => 'error',
+                        'message'      => 'Please wait before requesting another OTP.',
+                        'wait_seconds' => now()->diffInSeconds($cooldown),
+                        'locked'       => false,
+                    ], 429);
+                }
+            }
         }
 
-        if (Cache::has($cooldownKey)) {
-            $retryAfter = (int) Cache::get($cooldownKey);
-
-            Log::channel('daily')->warning('FP_SEND_OTP:COOLDOWN_ACTIVE', [
-                'request_id'  => $reqId,
-                'identifier'  => $identifier,
-                'retry_after' => $retryAfter,
-            ]);
-
-            return response()->json([
-                'status'      => 'error',
-                'message'     => 'Please wait before requesting another OTP.',
-                'retry_after' => $retryAfter,
-                'locked'      => false,
-            ], 429);
-        }
-
-        // ── Increment attempt counter ─────────────────────────────────
-        // attempts starts at 0; after first send it becomes 1, etc.
-        $attempts = (int) Cache::get($attemptKey, 0);
-        $attempts++;
-
-        if ($attempts > count(self::COOLDOWNS)) {
-            // All resends exhausted → hard-lock 24h
-            Cache::put($lockKey, self::LOCK_TTL, self::LOCK_TTL);
-            Cache::forget($attemptKey);
-            Cache::forget($cooldownKey);
-
-            Log::channel('daily')->warning('FP_SEND_OTP:HARD_LOCK_SET', [
-                'request_id' => $reqId,
-                'identifier' => $identifier,
-                'attempts'   => $attempts,
-            ]);
-
-            $this->logActivity(
-                $r,
-                'store',
-                'OTP request blocked — max resends exceeded, hard-locked 24h',
-                'password_reset_tokens',
-                null,
-                ['identifier'],
-                null,
-                ['identifier' => $identifier, 'attempts' => $attempts, 'request_id' => $reqId]
-            );
-
-            return response()->json([
-                'status'      => 'error',
-                'message'     => 'Too many attempts. Please try again after 24 hours.',
-                'retry_after' => self::LOCK_TTL,
-                'locked'      => true,
-            ], 429);
-        }
-
-        // Store updated attempt count (survives for 24h)
-        Cache::put($attemptKey, $attempts, self::LOCK_TTL);
-
-        // Set cooldown for the NEXT resend click (0-indexed: attempt 1→120s, attempt 2→300s)
-        $nextCooldown = self::COOLDOWNS[$attempts - 1];
-        Cache::put($cooldownKey, $nextCooldown, $nextCooldown);
+        $attempts     = $ipRecord ? $ipRecord->attempt_count + 1 : 1;
+        $nextCooldown = match($attempts) {
+            1       => 120,   // 2 min
+            2       => 300,   // 5 min
+            default => null,
+        };
 
         Log::channel('daily')->info('FP_SEND_OTP:RATE_LIMIT_UPDATED', [
-            'request_id'   => $reqId,
-            'identifier'   => $identifier,
-            'attempt'      => $attempts,
-            'next_cooldown'=> $nextCooldown,
+            'request_id'    => $reqId,
+            'identifier'    => $identifier,
+            'ip'            => $ip,
+            'attempt'       => $attempts,
+            'next_cooldown' => $nextCooldown,
         ]);
 
-        // ── Everything below is ZERO changes from your original ───────
+        // ── Everything below is ZERO changes ─────────────────────────
         $genericMessage = 'If this account exists in our system, an OTP has been sent to your registered contact.';
 
         $userRow = $isEmail
@@ -254,10 +223,11 @@ class ForgotPasswordController extends Controller
             ]);
 
             return response()->json([
-                'status'      => 'success',
-                'message'     => $genericMessage,
-                'retry_after' => $nextCooldown,
-                'data'        => [
+                'status'           => 'success',
+                'message'          => $genericMessage,
+                'cooldown_seconds' => $nextCooldown,
+                'is_final_attempt' => $attempts === 3,
+                'data'             => [
                     'request_id' => $reqId,
                     'email'      => $isEmail ? $identifier : null,
                     'phone'      => $isEmail ? null : $identifier,
@@ -265,8 +235,8 @@ class ForgotPasswordController extends Controller
             ]);
         }
 
-        $email    = !empty($userRow->email)        ? strtolower(trim($userRow->email))   : null;
-        $phone    = !empty($userRow->phone_number) ? trim($userRow->phone_number)         : null;
+        $email    = !empty($userRow->email)        ? strtolower(trim($userRow->email))  : null;
+        $phone    = !empty($userRow->phone_number) ? trim($userRow->phone_number)        : null;
         $tokenKey = $email ?? $phone;
 
         Log::channel('daily')->info('FP_SEND_OTP:RESOLVED', [
@@ -300,14 +270,23 @@ class ForgotPasswordController extends Controller
         try {
             DB::table('password_reset_tokens')->where('email', $tokenKey)->delete();
 
+            // Keep first click IP — never overwrite
+            $existingIpRecord = DB::table('password_reset_tokens')
+                ->where('system_ip', $ip)
+                ->whereDate('created_at', today())
+                ->first();
+
             DB::table('password_reset_tokens')->insert([
-                'email'       => $tokenKey,
-                'token'       => Str::random(64),
-                'phone_no'    => $phone,
-                'otp'         => $otp,
-                'expires_at'  => $expiresAt,
-                'verified_at' => null,
-                'created_at'  => $now,
+                'email'         => $tokenKey,
+                'token'         => Str::random(64),
+                'phone_no'      => $phone,
+                'otp'           => $otp,
+                'expires_at'    => $expiresAt,
+                'verified_at'   => null,
+                'system_ip'     => $existingIpRecord->system_ip ?? $ip, // ← first IP only
+                'attempt_count' => $attempts,
+                'created_at'    => $now,
+                'updated_at'    => $now,
             ]);
 
             Log::channel('daily')->info('FP_SEND_OTP:INSERT_OK', [
@@ -321,13 +300,15 @@ class ForgotPasswordController extends Controller
                 'OTP generated and stored — valid 10 minutes',
                 'password_reset_tokens',
                 null,
-                ['email', 'phone_no', 'otp', 'expires_at'],
+                ['email', 'phone_no', 'otp', 'expires_at', 'system_ip', 'attempt_count'],
                 null,
                 [
-                    'token_key'  => $tokenKey,
-                    'phone_no'   => $phone,
-                    'expires_at' => $expiresAt->toDateTimeString(),
-                    'request_id' => $reqId,
+                    'token_key'     => $tokenKey,
+                    'phone_no'      => $phone,
+                    'expires_at'    => $expiresAt->toDateTimeString(),
+                    'system_ip'     => $ip,
+                    'attempt_count' => $attempts,
+                    'request_id'    => $reqId,
                 ]
             );
 
@@ -358,10 +339,11 @@ class ForgotPasswordController extends Controller
         ]);
 
         return response()->json([
-            'status'      => 'success',
-            'message'     => $genericMessage,
-            'retry_after' => $nextCooldown,   // ← frontend drives its timer from this
-            'data'        => [
+            'status'           => 'success',
+            'message'          => $genericMessage,
+            'cooldown_seconds' => $nextCooldown,       // ← frontend timer
+            'is_final_attempt' => $attempts === 3,     // ← frontend disables button
+            'data'             => [
                 'request_id'         => $reqId,
                 'expires_in_minutes' => 10,
                 'email'              => $email,
@@ -373,7 +355,7 @@ class ForgotPasswordController extends Controller
 
     /* =========================================================
      | API 2 — POST /api/auth/forgot-password/reset
-     | Only addition: clear rate-limit cache on success
+     | Removed: clearRateLimitCache() — no longer needed
      * ========================================================= */
 
     public function resetPassword(Request $r)
@@ -427,7 +409,7 @@ class ForgotPasswordController extends Controller
                 'password_reset_tokens',
                 null,
                 ['verified_at'],
-                ['verified_at' => null,              'token_key' => $tokenKey],
+                ['verified_at' => null,             'token_key' => $tokenKey],
                 ['verified_at' => Carbon::now()->toDateTimeString(), 'token_key' => $tokenKey]
             );
 
@@ -473,7 +455,7 @@ class ForgotPasswordController extends Controller
                 'password_reset_tokens',
                 null,
                 ['verified_at'],
-                ['verified_at' => null,              'token_key' => $tokenKey],
+                ['verified_at' => null,             'token_key' => $tokenKey],
                 ['verified_at' => Carbon::now()->toDateTimeString(), 'token_key' => $tokenKey]
             );
 
@@ -537,13 +519,7 @@ class ForgotPasswordController extends Controller
             'token_key'  => $tokenKey,
         ]);
 
-        // ── Clear rate-limit cache so user can reset again cleanly ────
-        $this->clearRateLimitCache($tokenKey);
-
-        Log::channel('daily')->info('FP_RESET:RATE_LIMIT_CACHE_CLEARED', [
-            'request_id' => $reqId,
-            'token_key'  => $tokenKey,
-        ]);
+        // ── No cache to clear — DB resets naturally at midnight ───────
 
         return response()->json([
             'status'  => 'success',

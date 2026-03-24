@@ -534,4 +534,59 @@ class StudentResultController extends Controller
             ],
         ]);
     }
+    /* =========================================================
+ | GET: /api/student-results/my-email-status
+ |========================================================= */
+public function myEmailStatus(Request $request)
+{
+    $actor  = $this->actor($request);
+    $userId = (int) ($actor['id'] ?? 0);
+
+    if ($userId <= 0) {
+        return response()->json([
+            'success' => false,
+            'message' => 'Unable to resolve user from token.',
+        ], 403);
+    }
+
+    // Build select columns defensively (schema may vary)
+    $selects = ['id'];
+
+    if ($this->schemaHasColumn('users', 'email')) {
+        $selects[] = 'email';
+    } else {
+        $selects[] = DB::raw('NULL as email');
+    }
+
+    if ($this->schemaHasColumn('users', 'email_verified_at')) {
+        $selects[] = 'email_verified_at';
+    } else {
+        $selects[] = DB::raw('NULL as email_verified_at');
+    }
+
+    $user = DB::table('users')
+        ->select($selects)
+        ->where('id', $userId)
+        ->first();
+
+    if (!$user) {
+        return response()->json([
+            'success' => false,
+            'message' => 'User not found.',
+        ], 404);
+    }
+
+    $hasEmail      = !empty($user->email);
+    $isVerified    = !empty($user->email_verified_at);
+
+    return response()->json([
+        'success'             => true,
+        'is_email'            => $hasEmail ? 'yes' : 'no',
+        'is_email_verified'   => $isVerified ? 'yes' : 'no',
+        'email'               => $hasEmail ? $user->email : null,
+        'email_verified_at'   => $isVerified ? $user->email_verified_at : null,
+    ]);
+
+}
+
 }

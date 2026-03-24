@@ -493,8 +493,15 @@
         <label class="ux-label form-label" for="ux_phone">Phone Number</label>
         <div class="ux-phone-row">
           <div class="ux-input-wrap">
-            <input id="ux_phone" type="text" class="ux-control form-control"
-                   placeholder="90000 00000" inputmode="numeric" autocomplete="tel" required>
+           <input id="ux_phone"
+       type="tel"
+       class="ux-control form-control"
+       placeholder="90000 00000"
+       inputmode="numeric"
+       autocomplete="tel"
+       maxlength="10"
+       pattern="[0-9]{10}"
+       required>
           </div>
           <button type="button" class="ux-mini-btn" id="ux_sendOtpBtn">
             OTP
@@ -508,19 +515,15 @@
       </div>
 
       <!-- OTP block -->
-      <div class="mb-3 d-none" id="ux_otpBlock">
-        <label class="ux-label form-label" for="ux_otp">Enter OTP</label>
-        <div class="ux-otp-row">
-          <div class="ux-input-wrap">
-            <input id="ux_otp" type="text" class="ux-control form-control"
-                   placeholder="Enter OTP" inputmode="numeric" maxlength="6" autocomplete="one-time-code">
-          </div>
-          <button type="button" class="ux-mini-btn" id="ux_verifyOtpBtn">
-            Verify
-          </button>
-        </div>
-        <div class="ux-field-err" id="err_otp"></div>
-      </div>
+     <!-- OTP block -->
+<div class="mb-3 d-none" id="ux_otpBlock">
+  <label class="ux-label form-label" for="ux_otp">Enter OTP</label>
+  <div class="ux-input-wrap">
+    <input id="ux_otp" type="text" class="ux-control form-control"
+           placeholder="Enter 6-digit OTP" inputmode="numeric" maxlength="6" autocomplete="one-time-code">
+  </div>
+  <div class="ux-field-err" id="err_otp"></div>
+</div>
 
       <!-- Password — always visible, disabled until OTP verified -->
       <div class="mb-3">
@@ -610,7 +613,9 @@
     phoneVerified: false,
     verificationToken: '',
     verifiedPhone: '',
-    resendInterval: null
+    resendInterval: null,
+      verifyingOtp: false
+
   };
 
   const form       = document.getElementById('ux_form');
@@ -626,7 +631,7 @@
 
   const otpBlock   = document.getElementById('ux_otpBlock');
   const sendOtpBtn = document.getElementById('ux_sendOtpBtn');
-  const verifyBtn  = document.getElementById('ux_verifyOtpBtn');
+  // const verifyBtn  = document.getElementById('ux_verifyOtpBtn');
 
   const phoneVerifiedHidden = document.getElementById('ux_phone_verified');
   const verificationTokenEl = document.getElementById('ux_verification_token');
@@ -711,11 +716,14 @@
       ? '<i class="fa-solid fa-spinner fa-spin"></i>'
       : (state.otpSent ? 'Resend' : 'OTP');
   }
-
-  function setVerifyOtpBusy(b){
-    verifyBtn.disabled = b;
-    verifyBtn.innerHTML = b ? '<i class="fa-solid fa-spinner fa-spin"></i>' : 'Verify';
-  }
+function setOtpVerifyBusy(b){
+  state.verifyingOtp = b;
+  otpIn.disabled = b;
+}
+  // function setVerifyOtpBusy(b){
+  //   verifyBtn.disabled = b;
+  //   verifyBtn.innerHTML = b ? '<i class="fa-solid fa-spinner fa-spin"></i>' : 'Verify';
+  // }
 
   function unlockPasswordSection(){
     state.phoneVerified = true;
@@ -740,7 +748,7 @@
     verificationTokenEl.value = '';
 
     phoneVerifiedMsg.classList.remove('show');
-
+    otpIn.disabled = false;
     // Disable password fields again
     pw1.disabled = true;
     pw2.disabled = true;
@@ -779,8 +787,18 @@
     }
   });
 
-  otpIn?.addEventListener('input', function(){ this.value = normalizeOtp(this.value); });
+otpIn?.addEventListener('input', function(){
+  this.value = normalizeOtp(this.value);
 
+  if (
+    this.value.length === 6 &&
+    state.otpSent &&
+    !state.phoneVerified &&
+    !state.verifyingOtp
+  ) {
+    verifyOtpAutomatically();
+  }
+});
   sendOtpBtn?.addEventListener('click', async function(){
     clearAlert();
     clearFieldErrors();
@@ -806,14 +824,12 @@
         return;
       }
 if(!res.ok){
-        if(res.status === 429){
-          startResendCountdown(data?.retry_after ?? 300);
-          showAlert('warn', data?.message || 'Please wait before requesting another OTP.');
-          return;
-        }
-        showAlert('error', data?.message || data?.error || 'Failed to send OTP.');
-        return;
-      }
+    if (data?.wait_seconds) {
+        startResendCountdown(data.wait_seconds);
+    }
+    showAlert('warn', data?.message || 'Failed to send OTP.');
+    return;
+}
      state.otpSent = true;
       state.phoneVerified = false;
       state.verificationToken = data?.verification_token || data?.token || data?.session_id || '';
@@ -823,7 +839,14 @@ if(!res.ok){
       otpIn.value = '';
       otpIn.focus();
       showAlert('success', data?.message || 'OTP sent successfully.');
-      startResendCountdown(data?.retry_after ?? 120);
+
+if (data?.is_final_attempt) {
+    clearInterval(state.resendInterval);
+    sendOtpBtn.disabled    = true;
+    sendOtpBtn.textContent = 'Try tomorrow';
+} else if (data?.cooldown_seconds) {
+    startResendCountdown(data.cooldown_seconds);
+}
     }catch(err){
       showAlert('error', 'Network error while sending OTP.');
    }finally{
@@ -832,53 +855,132 @@ if(!res.ok){
       }
     }
   });
+async function verifyOtpAutomatically(){
+  clearAlert();
+  clearFieldErrors();
 
-  verifyBtn?.addEventListener('click', async function(){
-    clearAlert();
-    clearFieldErrors();
+  const phone = normalizePhone(phoneIn.value);
+  const otp   = normalizeOtp(otpIn.value);
 
-    const phone = normalizePhone(phoneIn.value);
-    const otp   = normalizeOtp(otpIn.value);
+  if(!state.otpSent){
+    showAlert('warn', 'Please send OTP first.');
+    return;
+  }
 
-    if(!state.otpSent){ showAlert('warn', 'Please send OTP first.'); return; }
-    if(!validPhone(phone)){ setFieldError('phone_number', 'Enter a valid phone number'); showAlert('warn', 'Please enter a valid phone number.'); return; }
-    if(!otp){ setFieldError('otp', 'Please enter the OTP'); showAlert('warn', 'Please enter the OTP.'); return; }
-    if(!validOtp(otp)){ setFieldError('otp', 'Enter a valid OTP'); showAlert('warn', 'Please enter a valid OTP.'); return; }
+  if(!validPhone(phone)){
+    setFieldError('phone_number', 'Enter a valid phone number');
+    showAlert('warn', 'Please enter a valid phone number.');
+    return;
+  }
 
-    setVerifyOtpBusy(true);
-    try{
-      const res = await fetch(VERIFY_OTP_API, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Accept': 'application/json', 'X-CSRF-TOKEN': csrf, 'X-Requested-With': 'XMLHttpRequest' },
-        body: JSON.stringify({ phone_number: phone, otp: otp, verification_token: verificationTokenEl.value || state.verificationToken || '' })
+  if(!otp){
+    setFieldError('otp', 'Please enter the OTP');
+    return;
+  }
+
+  if(otp.length !== 6){
+    return;
+  }
+
+  setOtpVerifyBusy(true);
+
+  try{
+    const res = await fetch(VERIFY_OTP_API, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+        'X-CSRF-TOKEN': csrf,
+        'X-Requested-With': 'XMLHttpRequest'
+      },
+      body: JSON.stringify({
+        phone_number: phone,
+        otp: otp,
+        verification_token: verificationTokenEl.value || state.verificationToken || ''
+      })
+    });
+
+    const data = await res.json().catch(() => ({}));
+
+    if(res.status === 422){
+      const errors = data?.errors || {};
+      Object.keys(errors).forEach((k) => {
+        const msg = Array.isArray(errors[k]) ? errors[k][0] : errors[k];
+        setFieldError(k, msg);
       });
-      const data = await res.json().catch(() => ({}));
-
-      if(res.status === 422){
-        const errors = data?.errors || {};
-        Object.keys(errors).forEach((k) => { const msg = Array.isArray(errors[k]) ? errors[k][0] : errors[k]; setFieldError(k, msg); });
-        showAlert('warn', data?.message || 'Please check the OTP.');
-        return;
-      }
-      if(!res.ok){ showAlert('error', data?.message || data?.error || 'OTP verification failed.'); return; }
-
-      state.verifiedPhone = phone;
-      state.verificationToken = data?.verification_token || verificationTokenEl.value || state.verificationToken || '';
-      verificationTokenEl.value = state.verificationToken || '';
-
-      phoneIn.disabled = true;
-      otpIn.disabled = true;
-      sendOtpBtn.disabled = true;
-      verifyBtn.disabled = true;
-
-      unlockPasswordSection();
-      showAlert('success', data?.message || 'Phone verified successfully.');
-    }catch(err){
-      showAlert('error', 'Network error while verifying OTP.');
-    }finally{
-      setVerifyOtpBusy(false);
+      showAlert('warn', data?.message || 'Please check the OTP.');
+      return;
     }
-  });
+
+    if(!res.ok){
+      showAlert('error', data?.message || data?.error || 'OTP verification failed.');
+      return;
+    }
+
+    state.verifiedPhone = phone;
+    state.verificationToken = data?.verification_token || verificationTokenEl.value || state.verificationToken || '';
+    verificationTokenEl.value = state.verificationToken || '';
+
+    phoneIn.disabled = true;
+    otpIn.disabled = true;
+    sendOtpBtn.disabled = true;
+
+    unlockPasswordSection();
+    showAlert('success', data?.message || 'Phone verified successfully.');
+  }catch(err){
+    showAlert('error', 'Network error while verifying OTP.');
+  }finally{
+    if(!state.phoneVerified){
+      setOtpVerifyBusy(false);
+    }
+  }
+}
+  // verifyBtn?.addEventListener('click', async function(){
+  //   clearAlert();
+  //   clearFieldErrors();
+
+  //   const phone = normalizePhone(phoneIn.value);
+  //   const otp   = normalizeOtp(otpIn.value);
+
+  //   if(!state.otpSent){ showAlert('warn', 'Please send OTP first.'); return; }
+  //   if(!validPhone(phone)){ setFieldError('phone_number', 'Enter a valid phone number'); showAlert('warn', 'Please enter a valid phone number.'); return; }
+  //   if(!otp){ setFieldError('otp', 'Please enter the OTP'); showAlert('warn', 'Please enter the OTP.'); return; }
+  //   if(!validOtp(otp)){ setFieldError('otp', 'Enter a valid OTP'); showAlert('warn', 'Please enter a valid OTP.'); return; }
+
+  //   setVerifyOtpBusy(true);
+  //   try{
+  //     const res = await fetch(VERIFY_OTP_API, {
+  //       method: 'POST',
+  //       headers: { 'Content-Type': 'application/json', 'Accept': 'application/json', 'X-CSRF-TOKEN': csrf, 'X-Requested-With': 'XMLHttpRequest' },
+  //       body: JSON.stringify({ phone_number: phone, otp: otp, verification_token: verificationTokenEl.value || state.verificationToken || '' })
+  //     });
+  //     const data = await res.json().catch(() => ({}));
+
+  //     if(res.status === 422){
+  //       const errors = data?.errors || {};
+  //       Object.keys(errors).forEach((k) => { const msg = Array.isArray(errors[k]) ? errors[k][0] : errors[k]; setFieldError(k, msg); });
+  //       showAlert('warn', data?.message || 'Please check the OTP.');
+  //       return;
+  //     }
+  //     if(!res.ok){ showAlert('error', data?.message || data?.error || 'OTP verification failed.'); return; }
+
+  //     state.verifiedPhone = phone;
+  //     state.verificationToken = data?.verification_token || verificationTokenEl.value || state.verificationToken || '';
+  //     verificationTokenEl.value = state.verificationToken || '';
+
+  //     phoneIn.disabled = true;
+  //     otpIn.disabled = true;
+  //     sendOtpBtn.disabled = true;
+  //     verifyBtn.disabled = true;
+
+  //     unlockPasswordSection();
+  //     showAlert('success', data?.message || 'Phone verified successfully.');
+  //   }catch(err){
+  //     showAlert('error', 'Network error while verifying OTP.');
+  //   }finally{
+  //     setVerifyOtpBusy(false);
+  //   }
+  // });
 
   form?.addEventListener('submit', async function(e){
     e.preventDefault();

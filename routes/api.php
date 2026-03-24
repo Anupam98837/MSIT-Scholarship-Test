@@ -30,6 +30,7 @@ use App\Http\Controllers\API\StudentPersonalAcademicDetailController;
 use App\Http\Controllers\API\ActivityLogsController;
 use App\Http\Controllers\API\RegisterController;
 use App\Http\Controllers\API\StudentDoubtSubmissionController;
+use App\Http\Controllers\API\EmailOtpController;
 
 
 
@@ -120,7 +121,8 @@ Route::middleware('checkRole:admin,super_admin,student,examiner')
     Route::match(['put','patch'],'/{key}', [QuizzController::class, 'update'])->name('update');
     
 });
-
+        Route::get('exam/results/{resultKey}',            [ExamController::class, 'resultDetail']);
+        Route::get('exam/results/{resultId}/export',     [ExamController::class, 'export']);
 
 // Exam Routes 
 Route::middleware(['checkRole:student,admin,examiner,super_admin'])
@@ -138,8 +140,7 @@ Route::middleware(['checkRole:student,admin,examiner,super_admin'])
 
         // student self-view
         Route::get('/quizzes/{quizKey}/my-attempts', [ExamController::class, 'myAttemptsForQuiz']);
-        Route::get('/results/{resultKey}',            [ExamController::class, 'resultDetail']);
-        Route::get('/results/{resultId}/export',     [ExamController::class, 'export']);
+
             // ✅ Single publish/unpublish
     Route::patch('/result/{resultId}/publish', [QuizzResultController::class, 'publishToStudent']);
 
@@ -681,5 +682,7 @@ Route::middleware('checkRole')->group(function () {
         Route::post('doubt-submissions',      [StudentDoubtSubmissionController::class, 'store']);
         Route::get('doubt-subjects', [StudentDoubtSubmissionController::class, 'subjects']);
     });
- 
+    Route::get('/my-email-status', [StudentResultController::class, 'myEmailStatus']);
+    Route::post('/student-results/send-email-otp',   [EmailOtpController::class, 'send']);
+    Route::post('/student-results/verify-email-otp', [EmailOtpController::class, 'verify']);
 });

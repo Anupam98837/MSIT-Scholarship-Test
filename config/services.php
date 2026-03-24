@@ -34,10 +34,13 @@ return [
             'channel' => env('SLACK_BOT_USER_DEFAULT_CHANNEL'),
         ],
     ],
-     'voicensms' => [
-    'endpoint'    => env('VOICENSMS_API_URL'),      
-    'api_key'     => env('VOICENSMS_API_KEY'),
-    'sender_id'   => env('VOICENSMS_SENDER_ID'),
-    'template_id' => env('VOICENSMS_TEMPLATE_ID'),
+    'voicensms' => [
+    'endpoint'  => env('VOICENSMS_API_URL'),
+    'api_key'   => env('VOICENSMS_API_KEY'),
+    'sender_id' => env('VOICENSMS_SENDER_ID'),
+    'templates' => [
+        'register'       => env('VOICENSMS_TEMPLATE_REGISTER'),
+        'reset_password' => env('VOICENSMS_TEMPLATE_RESET_PASSWORD'),
+    ],
 ],
 ];
