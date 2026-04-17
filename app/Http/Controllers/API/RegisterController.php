@@ -100,7 +100,7 @@ public function completeRegistration(Request $request)
     $now = now();
 
     // Auto assign these quiz IDs after registration
-    $autoQuizIds = [105,125,123];
+    $autoQuizIds = [73,31,28];
     $autoQuizIds = array_values(array_unique(array_map('intval', $autoQuizIds)));
 
     DB::transaction(function () use ($request, $phone, $now, $autoQuizIds) {
