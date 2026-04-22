@@ -1,8 +1,9 @@
 {{-- resources/views/auth/login.blade.php (Unzip Examination) --}}
 @php
-  $brandName = config('app.name', 'TechnoHere');
-  $initiativeName = config('app.initiative_name', '');
+  $brandName = trim((string) config('app.name', 'Techno Disha'));
+  $initiativeName = trim((string) config('app.initiative_name', ''));
   $brandTitle = $initiativeName !== '' ? "{$brandName} - {$initiativeName}" : $brandName;
+  $brandLogoAlt = $brandTitle;
 @endphp
 <!DOCTYPE html>
 <html lang="en">
@@ -346,7 +347,7 @@
   <section class="ux-left">
     <div class="ux-brand">
       {{-- Put your Unzip Exam logo here --}}
-      <img src="{{ asset('/assets/media/images/web/logo.png') }}" alt="Unzip Examination">
+      <img src="{{ asset('/assets/media/images/web/logo.png') }}" alt="{{ $brandLogoAlt }}">
     </div>
 
     <h1 class="ux-title">{{ $brandName }}</h1>

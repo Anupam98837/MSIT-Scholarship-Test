@@ -13,7 +13,7 @@ return [
     |
     */
 
-    'name' => env('APP_NAME', 'Laravel'),
+    'name' => env('APP_NAME', 'Techno Disha'),
 
     'initiative_name' => env('APP_INITIATIVE_NAME', ''),
 

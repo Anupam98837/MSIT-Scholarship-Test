@@ -1,4 +1,4 @@
-{{-- resources/views/layouts/structure.blade.php (Unzip Examination - Multi Role: admin/examiner/student) --}}
+{{-- resources/views/layouts/structure.blade.php --}}
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -11,10 +11,13 @@
     $role = in_array($roleSeg, ['admin','examiner','student']) ? $roleSeg : 'admin';
 
     $prefix = $role === 'admin' ? '/admin' : ($role === 'examiner' ? '/examiner' : '/student');
+    $brandName = trim((string) config('app.name', 'Techno Disha'));
+    $initiativeName = trim((string) config('app.initiative_name', ''));
+    $brandBaseTitle = $initiativeName !== '' ? "{$brandName} - {$initiativeName}" : $brandName;
 
     $brandTitle = $role === 'admin'
-      ? 'Unzip Examination Admin'
-      : ($role === 'examiner' ? 'Unzip Examination Examiner' : 'Unzip Examination Student');
+      ? "{$brandBaseTitle} Admin"
+      : ($role === 'examiner' ? "{$brandBaseTitle} Examiner" : "{$brandBaseTitle} Student");
 
     $dashboardUrl      = '/dashboard';
     $notificationsUrl  = $prefix . '/notifications';
@@ -385,7 +388,7 @@
   <div class="w3-sidebar-head">
     <a href="{{ $dashboardUrl }}" class="w3-brand">
       <img id="logo" src="{{ asset('/assets/media/images/web/logo.png
-      ') }}" alt="Unzip Examination">
+      ') }}" alt="{{ $brandBaseTitle }}">
     </a>
   </div>
 

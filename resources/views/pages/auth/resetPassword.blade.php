@@ -1,10 +1,15 @@
-{{-- resources/views/auth/reset-password.blade.php (Unzip Examination • same UI as login + reset logic) --}}
+{{-- resources/views/auth/reset-password.blade.php --}}
+@php
+  $brandName = trim((string) config('app.name', 'Techno Disha'));
+  $initiativeName = trim((string) config('app.initiative_name', ''));
+  $brandTitle = $initiativeName !== '' ? "{$brandName} - {$initiativeName}" : $brandName;
+@endphp
 <!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="utf-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
-  <title>Reset Password — Unzip Examination</title>
+  <title>Reset Password — {{ $brandTitle }}</title>
 
   <meta name="csrf-token" content="{{ csrf_token() }}"/>
 
@@ -124,6 +129,28 @@ overflow-x:hidden;
       text-align:center;
       font-size:clamp(1.6rem, 2.6vw, 2.2rem);
       margin:.35rem 0 .25rem;
+      position:relative;
+      z-index:1;
+      max-width:min(560px, 100%);
+    }
+    .ux-title2{
+      font-family:var(--font-head);
+      font-weight:700;
+      color:var(--ink);
+      text-align:center;
+      font-size:clamp(1.08rem, 1.9vw, 1.35rem);
+      margin-bottom:10px;
+      position:relative;
+      z-index:1;
+      max-width:min(560px, 100%);
+    }
+    .ux-page-title{
+      font-family:var(--font-head);
+      font-weight:700;
+      color:var(--ink);
+      text-align:center;
+      font-size:clamp(1.25rem, 2vw, 1.6rem);
+      margin:.1rem 0 .25rem;
       position:relative;
       z-index:1;
       max-width:min(560px, 100%);
@@ -348,10 +375,16 @@ overflow-x:hidden;
 <div class="ux-grid">
   <section class="ux-left">
     <div class="ux-brand">
-      <img src="{{ asset('/assets/media/images/web/logo.png') }}" alt="Unzip Examination">
+      <img src="{{ asset('/assets/media/images/web/logo.png') }}" alt="{{ $brandTitle }}">
     </div>
 
-    <h1 class="ux-title">Create a new password</h1>
+    <h1 class="ux-title">{{ $brandName }}</h1>
+    @if($initiativeName !== '')
+      <p>An Initiative of</p>
+      <h2 class="ux-title2">{{ $initiativeName }}</h2>
+    @endif
+
+    <h2 class="ux-page-title">Create a new password</h2>
     <p class="ux-sub">Use the reset link token to set a new password.</p>
 
     <form class="ux-card" id="rp_form" action="javascript:void(0)" method="post" novalidate>

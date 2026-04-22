@@ -1,10 +1,15 @@
-{{-- resources/views/auth/forgot-password.blade.php (Unzip Examination) --}}
+{{-- resources/views/auth/forgot-password.blade.php --}}
+@php
+  $brandName = trim((string) config('app.name', 'Techno Disha'));
+  $initiativeName = trim((string) config('app.initiative_name', ''));
+  $brandTitle = $initiativeName !== '' ? "{$brandName} - {$initiativeName}" : $brandName;
+@endphp
 <!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="utf-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
-  <title>Forgot Password — Unzip Examination</title>
+  <title>Forgot Password — {{ $brandTitle }}</title>
 
   <meta name="csrf-token" content="{{ csrf_token() }}"/>
 
@@ -59,6 +64,16 @@
     .ux-title{
       font-family:var(--font-head); font-weight:700; color:var(--ink); text-align:center;
       font-size:clamp(1.6rem, 2.6vw, 2.2rem); margin:.35rem 0 .25rem;
+      position:relative; z-index:1; max-width:min(560px, 100%);
+    }
+    .ux-title2{
+      font-family:var(--font-head); font-weight:700; color:var(--ink); text-align:center;
+      font-size:clamp(1.08rem, 1.9vw, 1.35rem); margin-bottom:10px;
+      position:relative; z-index:1; max-width:min(560px, 100%);
+    }
+    .ux-page-title{
+      font-family:var(--font-head); font-weight:700; color:var(--ink); text-align:center;
+      font-size:clamp(1.25rem, 2vw, 1.6rem); margin:.1rem 0 .25rem;
       position:relative; z-index:1; max-width:min(560px, 100%);
     }
     .ux-sub{ text-align:center; color:var(--muted-color); margin-bottom:18px; position:relative; z-index:1; max-width:min(560px, 100%); }
@@ -143,10 +158,16 @@
   <section class="ux-left">
 
     <div class="ux-brand">
-      <img src="{{ asset('/assets/media/images/web/logo.png') }}" alt="Unzip Examination">
+      <img src="{{ asset('/assets/media/images/web/logo.png') }}" alt="{{ $brandTitle }}">
     </div>
 
-    <h1 class="ux-title" id="fp_title">Forgot your password?</h1>
+    <h1 class="ux-title">{{ $brandName }}</h1>
+    @if($initiativeName !== '')
+      <p>An Initiative of</p>
+      <h2 class="ux-title2">{{ $initiativeName }}</h2>
+    @endif
+
+    <h2 class="ux-page-title" id="fp_title">Forgot your password?</h2>
     <p class="ux-sub" id="fp_sub">Enter your email or mobile number and we'll send you an OTP.</p>
 
     <div class="ux-form-shell">
