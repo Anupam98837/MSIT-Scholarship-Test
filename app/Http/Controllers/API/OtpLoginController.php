@@ -3,10 +3,10 @@
 namespace App\Http\Controllers\API;
 
 use App\Http\Controllers\Controller;
+use App\Services\OtpService;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Validator;
 
@@ -16,6 +16,11 @@ class OtpLoginController extends Controller
     private const OTP_EXPIRY_MINUTES = 10;
     private const CYCLE_RESET_HOURS = 24;
     private const COOLDOWN_STEPS = [30, 60, 120];
+
+    public function __construct(
+        private readonly OtpService $otpService
+    ) {
+    }
 
     public function sendOtp(Request $request)
     {
@@ -352,27 +357,7 @@ class OtpLoginController extends Controller
     private function sendOtpSms(string $phone, string $otp): bool
     {
         try {
-            $payload = [
-                'ukey'       => config('services.voicensms.api_key'),
-                'senderid'   => config('services.voicensms.sender_id'),
-                'msisdn'     => [$phone],
-                'message'    => "{$otp} is the OTP for Login Registration valid for 10 mins. Please do not share it with anyone. Netaji Subhash Engineering College. Call Us at 9831817307",
-                'args'       => [$otp],
-                'filetype'   => 2,
-                'language'   => 0,
-                'credittype' => 2,
-                'templateid' => 0,
-                'isrefno'    => true,
-            ];
-
-            $response = Http::withHeaders([
-                'Content-Type' => 'application/json',
-                'Accept'       => 'application/json',
-            ])->post('https://api.voicensms.in/SMSAPI/webresources/CreateSMSCampaignPost', $payload);
-
-            $json = $response->json();
-
-            return isset($json['status']) && strtolower((string) $json['status']) === 'success';
+            return $this->otpService->sendLoginOtpSms($phone, $otp);
         } catch (\Throwable $e) {
             Log::error('[OtpLoginController] SMS send failed', [
                 'phone' => $phone,

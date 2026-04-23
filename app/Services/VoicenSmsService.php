@@ -14,7 +14,7 @@ class VoicenSmsService implements SmsService
         'ukey'       => config('services.voicensms.api_key'),
         'senderid'   => config('services.voicensms.sender_id'),
         'msisdn'     => [$phone],
-        'message'    => "{$otp} is the OTP for Reset Password, valid for 10 mins. Please don't share it with anyone. Netaji Subhash Engineering College. Call 9831817307 for assistance.",
+        'message'    => "{$otp} is the OTP for Reset Password, valid for 10 mins. Please don't share it with anyone. Meghnad Saha Institute of Technology. Call 7044598807 for assistance",
         'filetype'   => 2,
         'language'   => 0,
         'credittype' => 2,

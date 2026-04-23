@@ -11,7 +11,7 @@ use Illuminate\Support\Facades\Log;
 
 class OtpService
 {
-public function sendOtp(string $phone, string $ip = null): array
+public function sendOtp(string $phone, ?string $ip = null): array
 {
     // ── Find today's record by this IP ──────────────────────────────
     $ipRecord = DB::table('otp_verifications')
@@ -146,6 +146,11 @@ public function sendOtp(string $phone, string $ip = null): array
         Cache::forget('otp_verified_' . $phone);
     }
 
+    public function sendLoginOtpSms(string $phone, string $otp): bool
+    {
+        return $this->callVoicenSmsApi($phone, $otp);
+    }
+
     // ─────────────────────────────────────────────
     // voicensms.in API call
     // ─────────────────────────────────────────────
@@ -153,17 +158,17 @@ public function sendOtp(string $phone, string $ip = null): array
 {
     try {
       $payload = [
-    'ukey'       => config('services.voicensms.api_key'),
-    'senderid'   => config('services.voicensms.sender_id'),
-    'msisdn'     => [$phone],
-    'message'    => "{$otp} is the OTP for Login Registration valid for 10 mins. Please do not share it with anyone. Netaji Subhash Engineering College. Call Us at 9831817307",
-    'args'       => [$otp],   // ← passes OTP as <arg1>
-    'filetype'   => 2,
-    'language'   => 0,
-    'credittype' => 2,
-    'templateid' => 0,
-    'isrefno'    => true,
-];
+            'ukey'       => config('voicensms.api_key'),
+            'senderid'   => 'MSIT',
+            'msisdn'     => [$phone],
+            'message'    => "{$otp} is the OTP for Login Registration valid for 10 mins. Please don't share it with anyone. Meghnad Saha Institute of Technology. Call us 7044598807",
+            'filetype'   => 2,
+            'language'   => 0,
+            'credittype' => 2,
+            'templateid' => 0,
+            'isrefno'    => true,
+        ];
+
 
 
         $url = 'https://api.voicensms.in/SMSAPI/webresources/CreateSMSCampaignPost';
