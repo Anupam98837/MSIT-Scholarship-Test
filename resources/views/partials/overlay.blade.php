@@ -11,7 +11,7 @@
             </div>
 
             <div class="w3-loader-logo-ring">
-                <img src="{{ asset('/assets/media/images/web/logo2.jpg') }}" alt="NSEC" class="w3-loader-logo">
+                <img src="{{ asset('/assets/media/images/web/logo.png') }}" alt="NSEC" class="w3-loader-logo">
             </div>
         </div>
 
